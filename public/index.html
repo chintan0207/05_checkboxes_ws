@@ -141,6 +141,11 @@
       const container = document.getElementById("container");
       const CHECKBOX_COUNT = 200;
 
+      socket.on("server:error", (data) => {
+        console.error("Error from server:", data.message);
+        alert(`Error: ${data.message}`);
+      });
+
       socket.on("server:checkbox:change", (data) => {
         console.log("server:checkbox:change", data);
         const { index, checked } = data;
@@ -151,28 +156,40 @@
         }
       });
 
-      window.addEventListener("load", async () => {
-        const response = await fetch("/checkboxes", { method: "GET" });
-        const { checkboxes } = await response.json();
-        console.log({ checkboxes });
-        if (checkboxes.length > 0) {
-          checkboxes.forEach((serverValue, index) => {
-            const input = document.createElement("input");
-            input.type = "checkbox";
-            input.id = `checkbox-${index}`;
-            input.checked = serverValue;
+      async function fetchStateFromServer() {
+        try {
+          while (container.firstChild) {
+            container.removeChild(container.firstChild);
+          }
 
-            input.addEventListener("change", (e) => {
-              const checked = e.target.checked;
-              console.log({ index, checked });
-              socket.emit("client:checkbox:change", { index, checked });
+          const response = await fetch("/checkboxes", { method: "GET" });
+          const { checkboxes } = await response.json();
+          console.log({ checkboxes });
+          if (checkboxes.length > 0) {
+            checkboxes.forEach((serverValue, index) => {
+              const input = document.createElement("input");
+              input.type = "checkbox";
+              input.id = `checkbox-${index}`;
+              input.checked = serverValue;
+
+              input.addEventListener("change", (e) => {
+                const checked = e.target.checked;
+                console.log({ index, checked });
+                socket.emit("client:checkbox:change", { index, checked });
+                fetchStateFromServer();
+              });
+
+              container.appendChild(input);
             });
-
-            container.appendChild(input);
-          });
+          }
+        } catch (error) {
+          console.error("Error fetching checkbox state:", error);
         }
-      });
+      }
 
+      window.addEventListener("load", async () => {
+        fetchStateFromServer();
+      });
     </script>
   </body>
 </html>

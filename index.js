@@ -8,6 +8,7 @@ import { channel } from "node:diagnostics_channel";
 
 const CHECKBOX_COUNT = 200;
 const CHECKBOX_STATE_KEY = "checkbox-state";
+const rateLimitHashMap = new Map();
 
 const state = {
   checkBoxes: new Array(CHECKBOX_COUNT).fill(false),
@@ -37,6 +38,24 @@ async function main() {
     socket.on("client:checkbox:change", async (data) => {
       console.log(`[socket: ${socket.id}]: client:checkbox:change:`, data);
 
+      const lastOperationTime = rateLimitHashMap.get(socket.id) || 0;
+
+      if (lastOperationTime) {
+        const timeElapsed = Date.now() - lastOperationTime;
+        if (timeElapsed < 5000) {
+          console.log(
+            `[socket: ${socket.id}]: Rate limit exceeded. Time elapsed: ${timeElapsed}ms`,
+          );
+          socket.emit("server:error", {
+            message:
+              "Rate limit exceeded. Please wait before making another change.",
+          });
+          return;
+        } 
+      }
+
+      rateLimitHashMap.set(socket.id, Date.now());
+
       const existingState = await publisher.get(CHECKBOX_STATE_KEY);
 
       if (existingState) {
@@ -61,7 +80,7 @@ async function main() {
     res.status(200).json({ healthy: true });
   });
 
-  app.get(`/checkboxes`, async(req, res) => {
+  app.get(`/checkboxes`, async (req, res) => {
     const existingState = await redis.get(CHECKBOX_STATE_KEY);
     if (existingState) {
       const remoteData = JSON.parse(existingState);
