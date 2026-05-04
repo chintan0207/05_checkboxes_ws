@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>1 Million checkboxes</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Inter", sans-serif;
+      }
+
+      body {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #020617, #0f172a 60%, #020617);
+        color: #e2e8f0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 50px 20px;
+      }
+
+      h1 {
+        font-size: 42px;
+        font-weight: 700;
+        margin-bottom: 10px;
+        background: linear-gradient(90deg, #38bdf8, #22d3ee);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      p {
+        color: #94a3b8;
+        margin-bottom: 30px;
+      }
+
+      #container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+        gap: 14px;
+        width: 100%;
+        max-width: 1000px;
+        padding: 30px;
+
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.04);
+        backdrop-filter: blur(15px);
+
+        border: 1px solid rgba(56, 189, 248, 0.2);
+
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.03),
+          0 20px 60px rgba(0, 0, 0, 0.7);
+      }
+
+      input[type="checkbox"] {
+        appearance: none;
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        border: 2px solid #334155;
+        background: transparent;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        position: relative;
+      }
+
+      /* Hover effect */
+      input[type="checkbox"]:hover {
+        border-color: #38bdf8;
+        box-shadow: 0 0 10px #38bdf866;
+        transform: scale(1.1);
+      }
+
+      /* Checked state */
+      input[type="checkbox"]:checked {
+        background: linear-gradient(135deg, #38bdf8, #22d3ee);
+        border-color: #38bdf8;
+        box-shadow:
+          0 0 12px #38bdf8,
+          0 0 25px #22d3ee66;
+        transform: scale(1.15);
+      }
+
+      /* Checkmark */
+      input[type="checkbox"]:checked::after {
+        content: "";
+        position: absolute;
+        width: 6px;
+        height: 12px;
+        border: solid #020617;
+        border-width: 0 2px 2px 0;
+        transform: translate(-50%, -60%) rotate(45deg);
+        top: 50%;
+        left: 50%;
+      }
+
+      /* Smooth entrance */
+      #container input {
+        animation: fadeIn 0.4s ease forwards;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: scale(0.8);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      /* Responsive */
+      @media (max-width: 600px) {
+        h1 {
+          font-size: 28px;
+        }
+
+        #container {
+          grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
+          gap: 10px;
+          padding: 20px;
+        }
+
+        input[type="checkbox"] {
+          width: 25px;
+          height: 25px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Checkboxes</h1>
+    <div id="container"></div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+      const container = document.getElementById("container");
+      const CHECKBOX_COUNT = 200;
+
+      socket.on("server:checkbox:change", (data) => {
+        console.log("server:checkbox:change", data);
+        const { index, checked } = data;
+        const input = document.getElementById(`checkbox-${index}`);
+
+        if (input) {
+          input.checked = checked;
+        }
+      });
+
+      window.addEventListener("load", async () => {
+        const response = await fetch("/checkboxes", { method: "GET" });
+        const { checkboxes } = await response.json();
+        console.log({ checkboxes });
+        if (checkboxes.length > 0) {
+          checkboxes.forEach((serverValue, index) => {
+            const input = document.createElement("input");
+            input.type = "checkbox";
+            input.id = `checkbox-${index}`;
+            input.checked = serverValue;
+
+            input.addEventListener("change", (e) => {
+              const checked = e.target.checked;
+              console.log({ index, checked });
+              socket.emit("client:checkbox:change", { index, checked });
+            });
+
+            container.appendChild(input);
+          });
+        }
+      });
+
+    </script>
+  </body>
+</html>
