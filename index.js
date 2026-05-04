@@ -38,11 +38,11 @@ async function main() {
     socket.on("client:checkbox:change", async (data) => {
       console.log(`[socket: ${socket.id}]: client:checkbox:change:`, data);
 
-      const lastOperationTime = rateLimitHashMap.get(socket.id) || 0;
+      const lastOperationTime = await redis.get(`rate-limit:${socket.id}`);
 
       if (lastOperationTime) {
         const timeElapsed = Date.now() - lastOperationTime;
-        if (timeElapsed < 5000) {
+        if (timeElapsed < 2000) {
           console.log(
             `[socket: ${socket.id}]: Rate limit exceeded. Time elapsed: ${timeElapsed}ms`,
           );
@@ -51,10 +51,10 @@ async function main() {
               "Rate limit exceeded. Please wait before making another change.",
           });
           return;
-        } 
+        }
       }
 
-      rateLimitHashMap.set(socket.id, Date.now());
+      await redis.set(`rate-limit:${socket.id}`, Date.now());
 
       const existingState = await publisher.get(CHECKBOX_STATE_KEY);
 

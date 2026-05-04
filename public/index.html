@@ -151,9 +151,10 @@
         const { index, checked } = data;
         const input = document.getElementById(`checkbox-${index}`);
 
-        if (input) {
-          input.checked = checked;
-        }
+        // if (input) {
+        //   input.checked = checked;
+        // }
+        fetchStateFromServer();
       });
 
       async function fetchStateFromServer() {
