@@ -3,6 +3,9 @@ import express from "express";
 import { Server } from "socket.io";
 import path from "node:path";
 
+import { publisher, subscriber } from "./redis-conection.js";
+import { channel } from "node:diagnostics_channel";
+
 const CHECKBOX_COUNT = 200;
 
 const state = {
@@ -18,14 +21,25 @@ async function main() {
   const io = new Server();
   io.attach(server);
 
+  subscriber.subscribe("internal-server:checkbox:change");
+  subscriber.on(`message`, (channel, message) => {
+    if (channel === "internal-server:checkbox:change") {
+      const { index, checked } = JSON.parse(message);
+      state.checkBoxes[index] = checked;
+      io.emit("server:checkbox:change", { index, checked });
+    }
+  });
+
   // socket.io handlers
-  io.on("connection", (socket) => {
+  io.on("connection", async (socket) => {
     console.log(`Socket connected:`, { id: socket.id });
-    socket.on("client:checkbox:change", (data) => {
+    socket.on("client:checkbox:change", async (data) => {
       console.log(`[socket: ${socket.id}]: client:checkbox:change:`, data);
 
-      io.emit("server:checkbox:change", data);
-      state.checkBoxes[data.index] = data.checked;
+      await publisher.publish(
+        "internal-server:checkbox:change",
+        JSON.stringify(data),
+      );
     });
   });
 
